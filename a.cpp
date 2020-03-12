@@ -62,9 +62,15 @@ void initialize_by_valid() {
 }
 
 // 同じ連結成分内を蛇行して敷き詰める
+// bonus順ソート追加
+// skillもソートしたけどB以外減った
 void initialize_by_conn() {
-    sort(developers.begin(), developers.end(), [](auto& a, auto& b) { return a.company < b.company; });
-    sort(managers.begin(), managers.end(), [](auto& a, auto& b) { return a.company < b.company; });
+    sort(developers.begin(), developers.end(), [](auto& a, auto& b) {
+        return make_tuple(a.company, -a.bonus, -a.skills.count()) <
+               make_tuple(b.company, -b.bonus, -(int)b.skills.count());
+    });
+    sort(managers.begin(), managers.end(),
+         [](auto& a, auto& b) { return make_tuple(a.company, -a.bonus) < make_tuple(b.company, -b.bonus); });
     vector<vector<pair<int, int>>> valid_developer_pos_conn(num_conn), valid_manager_pos_conn(num_conn);
     vector<pair<int, int>> valid_developer_pos, valid_manager_pos;
     for (int i = 0; i < H; i++) {
