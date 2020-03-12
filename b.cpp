@@ -15,7 +15,7 @@ const vector<pair<int, int>> DIRECTIONS = {
 };
 mt19937 rnd(chrono::steady_clock::now().time_since_epoch().count());
 
-constexpr int MAX_SKILL_COUNT = 400;
+constexpr int MAX_SKILL_COUNT = 189;
 
 struct Developer {
     int id;
@@ -178,20 +178,50 @@ void C_sort_grouped_by_skill() {
         ok.insert(i);
     }
 
-    vector<vector<Developer>> skill_devs(MAX_SKILL_COUNT);
+    vector<vector<Developer>> skill_devs;
     for (int i = 0; i < MAX_SKILL_COUNT; i++) {
+        for (int j = i + 1; j < MAX_SKILL_COUNT; j++) {
+            for (int k = j + 1; k < MAX_SKILL_COUNT; k++) {
+                skill_devs.emplace_back();
+                for (const auto& d : developers_var) {
+                    if (!ok.count(d.id)) continue;
+                    if (d.skills[i] && d.skills[j] && d.skills[k]) {
+                        skill_devs.back().push_back(d);
+                        ok.erase(d.id);
+                    }
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < MAX_SKILL_COUNT; i++) {
+        for (int j = i + 1; j < MAX_SKILL_COUNT; j++) {
+            skill_devs.emplace_back();
+            for (const auto& d : developers_var) {
+                if (!ok.count(d.id)) continue;
+                if (d.skills[i] && d.skills[j]) {
+                    skill_devs.back().push_back(d);
+                    ok.erase(d.id);
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < MAX_SKILL_COUNT; i++) {
+        skill_devs.emplace_back();
         for (const auto& d : developers_var) {
             if (!ok.count(d.id)) continue;
             if (d.skills[i]) {
-                skill_devs[i].push_back(d);
+                skill_devs.back().push_back(d);
                 ok.erase(d.id);
             }
         }
     }
 
     vector<Developer> new_developers;
-    for (int k = 0; k < MAX_SKILL_COUNT; k++) {
+    for (int k = 0; k < skill_devs.size(); k++) {
         int N = skill_devs[k].size();
+        if (N == 0) continue;
         vector<vector<int>> mat(N, vector<int>(N));
         for (int i = 0; i < N; i++) {
             for (int j = i + 1; j < N; j++) {
@@ -387,7 +417,6 @@ int calc_score(vector<vector<int>>& pos) {
                 int j2 = j1 + DIRECTIONS[k].second;
                 if (i2 >= H || j2 >= W || pos[i2][j2] < 0) continue;
                 int tmp = total_potential(pos, i1, j1, i2, j2);
-                if (tmp > 0) dump(i1, j1, i2, j2, tmp);
                 score += total_potential(pos, i1, j1, i2, j2);
             }
         }
@@ -395,7 +424,27 @@ int calc_score(vector<vector<int>>& pos) {
     return score;
 }
 
-void hill_climb(int seconds = 60) {
+void swap_two(int i1, int j1, int i2, int j2) {
+    int nxt_score = best_score;
+    if (abs(i1 - i2) <= 1 || abs(j1 - j2) <= 1) {
+        // とりあえず接してたら差分計算がバグるので保留
+        return;
+    } else {
+        nxt_score -= surrouding_potential(ans_pos, i1, j1);
+        nxt_score -= surrouding_potential(ans_pos, i2, j2);
+        swap(ans_pos[i1][j1], ans_pos[i2][j2]);
+        nxt_score += surrouding_potential(ans_pos, i1, j1);
+        nxt_score += surrouding_potential(ans_pos, i2, j2);
+        if (nxt_score > best_score) {
+            best_score = nxt_score;
+            cerr << "best_score updated: " << best_score << endl;
+        } else {
+            swap(ans_pos[i1][j1], ans_pos[i2][j2]);
+        }
+    }
+}
+
+void hill_climb(int seconds = 60 * 2) {
     auto start = chrono::steady_clock::now();
     while (1) {
         auto now = chrono::steady_clock::now();
@@ -403,25 +452,17 @@ void hill_climb(int seconds = 60) {
             break;
         }
         // developer
-        pair<int, int> p1 = dev_places[rnd() % dev_places.size()];
-        pair<int, int> p2 = dev_places[rnd() % dev_places.size()];
-        // とりあえず接してたら差分計算がバグるので保留
-        if (abs(p1.first - p2.first) <= 1 || abs(p2.first - p2.second) <= 1) continue;
-        int nxt_score = best_score;
-        nxt_score -= surrouding_potential(ans_pos, p1.first, p1.second);
-        nxt_score -= surrouding_potential(ans_pos, p2.first, p2.second);
-        swap(ans_pos[p1.first][p1.second], ans_pos[p2.first][p2.second]);
-        nxt_score += surrouding_potential(ans_pos, p1.first, p1.second);
-        nxt_score += surrouding_potential(ans_pos, p2.first, p2.second);
-        if (nxt_score > best_score) {
-            best_score = nxt_score;
-            assert(best_score == calc_score(ans_pos));
-            cerr << "best_score updated: " << best_score << endl;
-        } else {
-            swap(ans_pos[p1.first][p1.second], ans_pos[p2.first][p2.second]);
-            assert(best_score == calc_score(ans_pos));
+        {
+            pair<int, int> p1 = dev_places[rnd() % dev_places.size()];
+            pair<int, int> p2 = dev_places[rnd() % dev_places.size()];
+            swap_two(p1.first, p1.second, p2.first, p2.second);
         }
         // manager
+        {
+            pair<int, int> p1 = man_places[rnd() % man_places.size()];
+            pair<int, int> p2 = man_places[rnd() % man_places.size()];
+            swap_two(p1.first, p1.second, p2.first, p2.second);
+        }
     }
 }
 
@@ -536,7 +577,6 @@ int main() {
     initialize_by_conn();
     best_score = calc_score(ans_pos);
     cerr << "initial score: " << best_score << endl;
-    dump(ans_pos, best_score);
     hill_climb();
     print_solution();
 }
