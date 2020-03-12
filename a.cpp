@@ -1,0 +1,209 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+constexpr int MAX_SKILL_COUNT = 400;
+
+struct Developer {
+    int id;
+    int company, bonus;
+    bitset<MAX_SKILL_COUNT> skills;
+};
+
+struct Manager {
+    int id;
+    int company, bonus;
+};
+
+int num_developer, num_manager;
+int W, H;
+vector<string> board;
+vector<Developer> developers;
+vector<Manager> managers;
+
+// 解を入れる配列
+// H * Wでpos[i][j]は-1のとき、空いていてDeveloperが使える。-2のとき、空いていてManagerが使える
+// -3のとき、使えない
+// 0 <= i < nのとき、i番目のDeveloper
+// n <= i < n + mのときi - n番目のManager
+vector<vector<int>> pos;
+
+void initialize_by_valid() {
+    sort(developers.begin(), developers.end(), [](auto& a, auto& b) { return a.company < b.company; });
+    sort(managers.begin(), managers.end(), [](auto& a, auto& b) { return a.company < b.company; });
+    vector<pair<int, int>> valid_developer_pos, valid_manager_pos;
+    for (int i = 0; i < H; i++) {
+        if (i & 1) {
+            for (int j = 0; j < W; j++) {
+                if (pos[i][j] == -1) valid_developer_pos.emplace_back(i, j);
+                if (pos[i][j] == -2) valid_manager_pos.emplace_back(i, j);
+            }
+        } else {
+            for (int j = W - 1; j >= 0; j--) {
+                if (pos[i][j] == -1) valid_developer_pos.emplace_back(i, j);
+                if (pos[i][j] == -2) valid_manager_pos.emplace_back(i, j);
+            }
+        }
+    }
+    for (int i = 0; i < num_developer; i++) {
+        if (i < valid_developer_pos.size()) {
+            auto [a, b] = valid_developer_pos[i];
+            pos[a][b] = developers[i].id;
+        }
+    }
+    for (int i = 0; i < num_manager; i++) {
+        if (i < valid_manager_pos.size()) {
+            auto [a, b] = valid_manager_pos[i];
+            pos[a][b] = managers[i].id + num_developer;
+        }
+    }
+}
+
+void initialize_by_greedy() {}
+
+void print_solution() {
+    vector<pair<int, int>> developer_pos(num_developer, {-1, -1}), manager_pos(num_manager, {-1, -1});
+    for (int i = 0; i < H; i++) {
+        for (int j = 0; j < W; j++) {
+            if (0 <= pos[i][j]) {
+                if (pos[i][j] < num_developer) {
+                    developer_pos[pos[i][j]] = {i, j};
+                } else {
+                    manager_pos[pos[i][j] - num_developer] = {i, j};
+                }
+            }
+        }
+    }
+    for (int i = 0; i < num_developer; i++) {
+        if (developer_pos[i].first == -1) {
+            cout << 'X' << '\n';
+        } else {
+            cout << developer_pos[i].second << ' ' << developer_pos[i].first << '\n';
+        }
+    }
+    for (int i = 0; i < num_manager; i++) {
+        if (manager_pos[i].first == -1) {
+            cout << 'X' << '\n';
+        } else {
+            cout << manager_pos[i].second << ' ' << manager_pos[i].first << '\n';
+        }
+    }
+}
+
+inline int work_potential(const Developer& a, const Developer& b) {
+    int cap = (a.skills & b.skills).count();
+    int cup = (a.skills | b.skills).count();
+    return cap * (cup - cap);
+}
+
+inline int bonus_potential(const Developer& a, const Developer& b) {
+    return a.company == b.company ? a.bonus * b.bonus : 0;
+}
+
+inline int bonus_potential(const Developer& a, const Manager& b) {
+    return a.company == b.company ? a.bonus * b.bonus : 0;
+}
+
+void read_input() {
+    cin >> W >> H;
+    board.resize(H);
+    pos.assign(H, vector<int>(W, -3));
+    for (int i = 0; i < H; i++) cin >> board[i];
+    int avail_developer_cnt = 0;
+    int avail_manager_cnt = 0;
+    for (int i = 0; i < H; i++) {
+        for (int j = 0; j < W; j++) {
+            if (board[i][j] == '_') {
+                pos[i][j] = -1;
+                avail_developer_cnt++;
+            }
+            if (board[i][j] == 'M') {
+                pos[i][j] = -2;
+                avail_manager_cnt++;
+            }
+        }
+    }
+    cerr << "available developer cnt: " << avail_developer_cnt << endl;
+    cerr << "available manager cnt: " << avail_manager_cnt << endl;
+    int n;
+    cin >> n;
+    cerr << "input developer cnt: " << n << endl;
+    num_developer = n;
+    map<string, int> company_map;
+    map<string, int> skill_map;
+    vector<string> companies;
+    vector<vector<string>> skills;
+    companies.resize(n);
+    skills.resize(n);
+    for (int i = 0; i < n; i++) {
+        Developer developer;
+        cin >> companies[i] >> developer.bonus;
+        developer.id = i;
+        company_map[companies[i]];
+        developers.push_back(developer);
+        int k;
+        cin >> k;
+        skills[i].resize(k);
+        for (int j = 0; j < k; j++) {
+            cin >> skills[i][j];
+            skill_map[skills[i][j]];
+        }
+    }
+    int N = 0;
+    for (auto& p : skill_map) {
+        p.second = N++;
+    }
+    cerr << "total skill kind: " << N << endl;
+    assert(N <= MAX_SKILL_COUNT);
+    for (int i = 0; i < n; i++) {
+        for (const string& skill : skills[i]) {
+            developers[i].skills[skill_map[skill]] = 1;
+        }
+    }
+    int m;
+    cin >> m;
+    num_manager = m;
+    cerr << "input manager cnt: " << m << endl;
+    for (int i = 0; i < m; i++) {
+        string s;
+        Manager manager;
+        manager.id = i;
+        cin >> s >> manager.bonus;
+        managers.push_back(manager);
+        company_map[s];
+        companies.push_back(s);
+    }
+    N = 0;
+    for (auto& p : company_map) {
+        p.second = N++;
+    }
+    cerr << "total company kind: " << N << endl;
+    for (int i = 0; i < n; i++) {
+        developers[i].company = company_map[companies[i]];
+    }
+    for (int i = 0; i < m; i++) {
+        managers[i].company = company_map[companies[i + n]];
+    }
+}
+
+const char* input_files[] = {"test/a_solar.txt",     "test/b_dream.txt",  "test/c_soup.txt",
+                             "test/d_maelstrom.txt", "test/e_igloos.txt", "test/f_glitch.txt"};
+
+const char* output_files[] = {"sol/a.sol", "sol/b.sol", "sol/c.sol", "sol/d.sol", "sol/e.sol", "sol/f.sol"};
+
+void redirect_io(int k) {
+    assert(freopen(input_files[k], "r", stdin));
+    assert(freopen(output_files[k], "w", stdout));
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(0);
+
+    int n;
+    cin >> n;
+    redirect_io(n);
+    read_input();
+
+    initialize_by_valid();
+    print_solution();
+}
