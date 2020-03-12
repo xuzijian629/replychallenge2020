@@ -26,6 +26,9 @@ vector<Manager> managers;
 // 0 <= i < nのとき、i番目のDeveloper
 // n <= i < n + mのときi - n番目のManager
 vector<vector<int>> pos;
+int num_conn;
+// H * Wで、同じ値は同じ連結成分。壁は-1
+vector<vector<int>> conn;
 
 void initialize_by_valid() {
     sort(developers.begin(), developers.end(), [](auto& a, auto& b) { return a.company < b.company; });
@@ -58,7 +61,47 @@ void initialize_by_valid() {
     }
 }
 
-void initialize_by_greedy() {}
+// 同じ連結成分内を蛇行して敷き詰める
+void initialize_by_conn() {
+    sort(developers.begin(), developers.end(), [](auto& a, auto& b) { return a.company < b.company; });
+    sort(managers.begin(), managers.end(), [](auto& a, auto& b) { return a.company < b.company; });
+    vector<vector<pair<int, int>>> valid_developer_pos_conn(num_conn), valid_manager_pos_conn(num_conn);
+    vector<pair<int, int>> valid_developer_pos, valid_manager_pos;
+    for (int i = 0; i < H; i++) {
+        if (i & 1) {
+            for (int j = 0; j < W; j++) {
+                if (pos[i][j] == -1) valid_developer_pos_conn[conn[i][j]].emplace_back(i, j);
+                if (pos[i][j] == -2) valid_manager_pos_conn[conn[i][j]].emplace_back(i, j);
+            }
+        } else {
+            for (int j = W - 1; j >= 0; j--) {
+                if (pos[i][j] == -1) valid_developer_pos_conn[conn[i][j]].emplace_back(i, j);
+                if (pos[i][j] == -2) valid_manager_pos_conn[conn[i][j]].emplace_back(i, j);
+            }
+        }
+    }
+    for (int i = 0; i < num_conn; i++) {
+        for (auto& e : valid_developer_pos_conn[i]) {
+            valid_developer_pos.push_back(e);
+        }
+        for (auto& e : valid_manager_pos_conn[i]) {
+            valid_manager_pos.push_back(e);
+        }
+    }
+
+    for (int i = 0; i < num_developer; i++) {
+        if (i < valid_developer_pos.size()) {
+            auto [a, b] = valid_developer_pos[i];
+            pos[a][b] = developers[i].id;
+        }
+    }
+    for (int i = 0; i < num_manager; i++) {
+        if (i < valid_manager_pos.size()) {
+            auto [a, b] = valid_manager_pos[i];
+            pos[a][b] = managers[i].id + num_developer;
+        }
+    }
+}
 
 void print_solution() {
     vector<pair<int, int>> developer_pos(num_developer, {-1, -1}), manager_pos(num_manager, {-1, -1});
@@ -101,6 +144,38 @@ inline int bonus_potential(const Developer& a, const Developer& b) {
 
 inline int bonus_potential(const Developer& a, const Manager& b) {
     return a.company == b.company ? a.bonus * b.bonus : 0;
+}
+
+inline int bonus_potential(const Manager& a, const Manager& b) {
+    return a.company == b.company ? a.bonus * b.bonus : 0;
+}
+
+void init_conn() {
+    conn.assign(H, vector<int>(W, -1));
+    queue<pair<int, int>> que;
+    num_conn = 0;
+    int dx[] = {-1, 1, 0, 0};
+    int dy[] = {0, 0, -1, 1};
+    for (int i = 0; i < H; i++) {
+        for (int j = 0; j < W; j++) {
+            if (board[i][j] != '#' && conn[i][j] == -1) {
+                que.emplace(i, j);
+                conn[i][j] = num_conn;
+                while (!que.empty()) {
+                    auto& [x, y] = que.front();
+                    que.pop();
+                    for (int k = 0; k < 4; k++) {
+                        int a = x + dx[k], b = y + dy[k];
+                        if (0 <= a && a < H && 0 <= b && b < W && board[a][b] != '#' && conn[a][b] == -1) {
+                            conn[a][b] = num_conn;
+                            que.emplace(a, b);
+                        }
+                    }
+                }
+                num_conn++;
+            }
+        }
+    }
 }
 
 void read_input() {
@@ -183,6 +258,7 @@ void read_input() {
     for (int i = 0; i < m; i++) {
         managers[i].company = company_map[companies[i + n]];
     }
+    init_conn();
 }
 
 const char* input_files[] = {"test/a_solar.txt",     "test/b_dream.txt",  "test/c_soup.txt",
@@ -204,6 +280,7 @@ int main() {
     redirect_io(n);
     read_input();
 
-    initialize_by_valid();
+    // initialize_by_valid();
+    initialize_by_conn();
     print_solution();
 }
