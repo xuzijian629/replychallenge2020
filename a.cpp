@@ -26,9 +26,28 @@ vector<Manager> managers;
 // 0 <= i < nのとき、i番目のDeveloper
 // n <= i < n + mのときi - n番目のManager
 vector<vector<int>> pos;
+int num_companies;
 int num_conn;
 // H * Wで、同じ値は同じ連結成分。壁は-1
 vector<vector<int>> conn;
+
+inline int work_potential(const Developer& a, const Developer& b) {
+    int cap = (a.skills & b.skills).count();
+    int cup = (a.skills | b.skills).count();
+    return cap * (cup - cap);
+}
+
+inline int bonus_potential(const Developer& a, const Developer& b) {
+    return a.company == b.company ? a.bonus * b.bonus : 0;
+}
+
+inline int bonus_potential(const Developer& a, const Manager& b) {
+    return a.company == b.company ? a.bonus * b.bonus : 0;
+}
+
+inline int bonus_potential(const Manager& a, const Manager& b) {
+    return a.company == b.company ? a.bonus * b.bonus : 0;
+}
 
 void initialize_by_valid() {
     sort(developers.begin(), developers.end(), [](auto& a, auto& b) { return a.company < b.company; });
@@ -61,16 +80,80 @@ void initialize_by_valid() {
     }
 }
 
-// 同じ連結成分内を蛇行して敷き詰める
 // bonus順ソート追加
 // skillもソートしたけどB以外減った
-void initialize_by_conn() {
+void valid_sort() {
     sort(developers.begin(), developers.end(), [](auto& a, auto& b) {
         return make_tuple(a.company, -a.bonus, -a.skills.count()) <
                make_tuple(b.company, -b.bonus, -(int)b.skills.count());
     });
     sort(managers.begin(), managers.end(),
          [](auto& a, auto& b) { return make_tuple(a.company, -a.bonus) < make_tuple(b.company, -b.bonus); });
+}
+
+// WPに注目して
+void C_sort() {
+    // managerはどうでもいい
+    sort(managers.begin(), managers.end(),
+         [](auto& a, auto& b) { return make_tuple(a.company, -a.bonus) < make_tuple(b.company, -b.bonus); });
+
+    vector<vector<Developer>> comp_devs(num_companies);
+    for (const auto& d : developers) {
+        comp_devs[d.company].push_back(d);
+    }
+
+    vector<Developer> new_developers;
+    for (int k = 0; k < num_companies; k++) {
+        int N = comp_devs[k].size();
+        vector<vector<int>> mat(N, vector<int>(N));
+        for (int i = 0; i < N; i++) {
+            for (int j = i + 1; j < N; j++) {
+                mat[i][j] = work_potential(comp_devs[k][i], comp_devs[k][j]);
+            }
+        }
+        // このN頂点完全グラフの最長パスを求めたい。とりあえず雑探索
+        int best_score = -1;
+        vector<int> best;
+        // 始点全探索。あとはgreedy
+        for (int i = 0; i < N; i++) {
+            int cur_score = 0;
+            vector<int> cur = {i};
+            set<int> ok;
+            for (int j = 0; j < N; j++) {
+                ok.insert(j);
+            }
+            ok.erase(i);
+            while (!ok.empty()) {
+                int nax = -1;
+                int idx = -1;
+                for (int j : ok) {
+                    if (mat[cur.back()][j] > nax) {
+                        nax = mat[cur.back()][j];
+                        idx = j;
+                    }
+                }
+                assert(idx != -1);
+                cur_score += nax;
+                ok.erase(idx);
+                cur.push_back(idx);
+            }
+            if (cur_score > best_score) {
+                best_score = cur_score;
+                best = cur;
+            }
+        }
+        assert(best.size() == N);
+        for (int i = 0; i < N; i++) {
+            new_developers.push_back(comp_devs[k][best[i]]);
+        }
+    }
+    swap(developers, new_developers);
+}
+
+// 同じ連結成分内を蛇行して敷き詰める
+void initialize_by_conn() {
+    // valid_sort();
+    C_sort();
     vector<vector<pair<int, int>>> valid_developer_pos_conn(num_conn), valid_manager_pos_conn(num_conn);
     vector<pair<int, int>> valid_developer_pos, valid_manager_pos;
     for (int i = 0; i < H; i++) {
@@ -136,24 +219,6 @@ void print_solution() {
             cout << manager_pos[i].second << ' ' << manager_pos[i].first << '\n';
         }
     }
-}
-
-inline int work_potential(const Developer& a, const Developer& b) {
-    int cap = (a.skills & b.skills).count();
-    int cup = (a.skills | b.skills).count();
-    return cap * (cup - cap);
-}
-
-inline int bonus_potential(const Developer& a, const Developer& b) {
-    return a.company == b.company ? a.bonus * b.bonus : 0;
-}
-
-inline int bonus_potential(const Developer& a, const Manager& b) {
-    return a.company == b.company ? a.bonus * b.bonus : 0;
-}
-
-inline int bonus_potential(const Manager& a, const Manager& b) {
-    return a.company == b.company ? a.bonus * b.bonus : 0;
 }
 
 void init_conn() {
@@ -258,6 +323,7 @@ void read_input() {
         p.second = N++;
     }
     cerr << "total company kind: " << N << endl;
+    num_companies = N;
     for (int i = 0; i < n; i++) {
         developers[i].company = company_map[companies[i]];
     }
