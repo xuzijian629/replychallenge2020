@@ -249,6 +249,41 @@ void init_conn() {
     }
 }
 
+void init_conn_by_block(int block_size) {
+    conn.assign(H, vector<int>(W, -1));
+    queue<pair<int, int>> que;
+    num_conn = 0;
+    int dx[] = {-1, 1, 0, 0};
+    int dy[] = {0, 0, -1, 1};
+    for (int b_i = 0; b_i < H; b_i += block_size) {
+        for (int b_j = 0; b_j < W; b_j += block_size) {
+            int L_i = b_i, R_i = min(b_i + block_size, H);
+            int L_j = b_j, R_j = min(b_j + block_size, W);
+            for (int i = L_i; i < R_i; i++) {
+                for (int j = L_j; j < R_j; j++) {
+                    if (board[i][j] != '#' && conn[i][j] == -1) {
+                        que.emplace(i, j);
+                        conn[i][j] = num_conn;
+                        while (!que.empty()) {
+                            auto& [x, y] = que.front();
+                            que.pop();
+                            for (int k = 0; k < 4; k++) {
+                                int a = x + dx[k], b = y + dy[k];
+                                if (L_i <= a && a < R_i && L_j <= b && b < R_j && board[a][b] != '#' &&
+                                    conn[a][b] == -1) {
+                                    conn[a][b] = num_conn;
+                                    que.emplace(a, b);
+                                }
+                            }
+                        }
+                        num_conn++;
+                    }
+                }
+            }
+        }
+    }
+}
+
 void read_input() {
     cin >> W >> H;
     board.resize(H);
@@ -330,7 +365,8 @@ void read_input() {
     for (int i = 0; i < m; i++) {
         managers[i].company = company_map[companies[i + n]];
     }
-    init_conn();
+    // init_conn();
+    init_conn_by_block(50);
 }
 
 const char* input_files[] = {"test/a_solar.txt",     "test/b_dream.txt",  "test/c_soup.txt",
