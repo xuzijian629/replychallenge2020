@@ -125,6 +125,7 @@ void C_sort() {
         for (int i = 0; i < N; i++) {
             for (int j = i + 1; j < N; j++) {
                 mat[i][j] = work_potential(comp_devs[k][i], comp_devs[k][j]);
+                mat[j][i] = mat[i][j];
             }
         }
         // このN頂点完全グラフの最長パスを求めたい。とりあえず雑探索
@@ -161,6 +162,76 @@ void C_sort() {
         assert(best.size() == N);
         for (int i = 0; i < N; i++) {
             new_developers.push_back(comp_devs[k][best[i]]);
+        }
+    }
+    swap(developers, new_developers);
+}
+
+// 同じ会社で連結成分にするのではなく、skillで同じ成分にする
+void C_sort_grouped_by_skill() {
+    // managerはどうでもいい
+    sort(managers.begin(), managers.end(),
+         [](auto& a, auto& b) { return make_tuple(a.company, -a.bonus) < make_tuple(b.company, -b.bonus); });
+
+    set<int> ok;
+    for (int i = 0; i < num_developer; i++) {
+        ok.insert(i);
+    }
+
+    vector<vector<Developer>> skill_devs(MAX_SKILL_COUNT);
+    for (int i = 0; i < MAX_SKILL_COUNT; i++) {
+        for (const auto& d : developers) {
+            if (!ok.count(d.id)) continue;
+            skill_devs[i].push_back(d);
+            ok.erase(d.id);
+        }
+    }
+
+    vector<Developer> new_developers;
+    for (int k = 0; k < MAX_SKILL_COUNT; k++) {
+        int N = skill_devs[k].size();
+        vector<vector<int>> mat(N, vector<int>(N));
+        for (int i = 0; i < N; i++) {
+            for (int j = i + 1; j < N; j++) {
+                mat[i][j] = work_potential(skill_devs[k][i], skill_devs[k][j]);
+                mat[i][j] += bonus_potential(skill_devs[k][i], skill_devs[k][j]);
+                mat[j][i] = mat[i][j];
+            }
+        }
+        // このN頂点完全グラフの最長パスを求めたい。とりあえず雑探索
+        int best_score = -1;
+        vector<int> best;
+        // 始点全探索。あとはgreedy
+        for (int i = 0; i < N; i++) {
+            int cur_score = 0;
+            vector<int> cur = {i};
+            set<int> ok;
+            for (int j = 0; j < N; j++) {
+                ok.insert(j);
+            }
+            ok.erase(i);
+            while (!ok.empty()) {
+                int nax = -1;
+                int idx = -1;
+                for (int j : ok) {
+                    if (mat[cur.back()][j] > nax) {
+                        nax = mat[cur.back()][j];
+                        idx = j;
+                    }
+                }
+                assert(idx != -1);
+                cur_score += nax;
+                ok.erase(idx);
+                cur.push_back(idx);
+            }
+            if (cur_score > best_score) {
+                best_score = cur_score;
+                best = cur;
+            }
+        }
+        assert(best.size() == N);
+        for (int i = 0; i < N; i++) {
+            new_developers.push_back(skill_devs[k][best[i]]);
         }
     }
     swap(developers, new_developers);
