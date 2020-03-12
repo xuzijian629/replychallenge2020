@@ -4,7 +4,7 @@ using Int = long long;
 #define REP_(i, a_, b_, a, b, ...) for (int i = (a), lim_i = (b); i < lim_i; i++)
 #define REP(i, ...) REP_((i), __VA_ARGS__, __VA_ARGS__, 0, __VA_ARGS__)
 struct SetupIO { SetupIO() { cin.tie(nullptr), ios::sync_with_stdio(false), cout << fixed << setprecision(13); } } setup_io;
-#ifndef _MY_DEBUG
+#ifndef MY_DEBUG
 #define dump(...)
 #endif  // clang-format on
 
@@ -31,8 +31,8 @@ struct Manager {
 int num_developer, num_manager;
 int W, H;
 vector<string> board;
-vector<Developer> developers;
-vector<Manager> managers;
+vector<Developer> developers, developers_var;
+vector<Manager> managers, managers_var;
 vector<pair<int, int>> dev_places, man_places;
 
 // 解を入れる配列
@@ -66,8 +66,8 @@ inline int bonus_potential(const Manager& a, const Manager& b) {
 }
 
 void initialize_by_valid() {
-    sort(developers.begin(), developers.end(), [](auto& a, auto& b) { return a.company < b.company; });
-    sort(managers.begin(), managers.end(), [](auto& a, auto& b) { return a.company < b.company; });
+    sort(developers_var.begin(), developers_var.end(), [](auto& a, auto& b) { return a.company < b.company; });
+    sort(managers_var.begin(), managers_var.end(), [](auto& a, auto& b) { return a.company < b.company; });
     vector<pair<int, int>> valid_developer_pos, valid_manager_pos;
     for (int i = 0; i < H; i++) {
         if (i & 1) {
@@ -85,13 +85,13 @@ void initialize_by_valid() {
     for (int i = 0; i < num_developer; i++) {
         if (i < valid_developer_pos.size()) {
             auto [a, b] = valid_developer_pos[i];
-            ans_pos[a][b] = developers[i].id;
+            ans_pos[a][b] = developers_var[i].id;
         }
     }
     for (int i = 0; i < num_manager; i++) {
         if (i < valid_manager_pos.size()) {
             auto [a, b] = valid_manager_pos[i];
-            ans_pos[a][b] = managers[i].id + num_developer;
+            ans_pos[a][b] = managers_var[i].id + num_developer;
         }
     }
 }
@@ -99,22 +99,22 @@ void initialize_by_valid() {
 // bonus順ソート追加
 // skillもソートしたけどB以外減った
 void valid_sort() {
-    sort(developers.begin(), developers.end(), [](auto& a, auto& b) {
+    sort(developers_var.begin(), developers_var.end(), [](auto& a, auto& b) {
         return make_tuple(a.company, -a.bonus, -a.skills.count()) <
                make_tuple(b.company, -b.bonus, -(int)b.skills.count());
     });
-    sort(managers.begin(), managers.end(),
+    sort(managers_var.begin(), managers_var.end(),
          [](auto& a, auto& b) { return make_tuple(a.company, -a.bonus) < make_tuple(b.company, -b.bonus); });
 }
 
 // WPに注目して
 void C_sort() {
     // managerはどうでもいい
-    sort(managers.begin(), managers.end(),
+    sort(managers_var.begin(), managers_var.end(),
          [](auto& a, auto& b) { return make_tuple(a.company, -a.bonus) < make_tuple(b.company, -b.bonus); });
 
     vector<vector<Developer>> comp_devs(num_companies);
-    for (const auto& d : developers) {
+    for (const auto& d : developers_var) {
         comp_devs[d.company].push_back(d);
     }
 
@@ -164,13 +164,13 @@ void C_sort() {
             new_developers.push_back(comp_devs[k][best[i]]);
         }
     }
-    swap(developers, new_developers);
+    swap(developers_var, new_developers);
 }
 
 // 同じ会社で連結成分にするのではなく、skillで同じ成分にする
 void C_sort_grouped_by_skill() {
     // managerはどうでもいい
-    sort(managers.begin(), managers.end(),
+    sort(managers_var.begin(), managers_var.end(),
          [](auto& a, auto& b) { return make_tuple(a.company, -a.bonus) < make_tuple(b.company, -b.bonus); });
 
     set<int> ok;
@@ -180,10 +180,12 @@ void C_sort_grouped_by_skill() {
 
     vector<vector<Developer>> skill_devs(MAX_SKILL_COUNT);
     for (int i = 0; i < MAX_SKILL_COUNT; i++) {
-        for (const auto& d : developers) {
+        for (const auto& d : developers_var) {
             if (!ok.count(d.id)) continue;
-            skill_devs[i].push_back(d);
-            ok.erase(d.id);
+            if (d.skills[i]) {
+                skill_devs[i].push_back(d);
+                ok.erase(d.id);
+            }
         }
     }
 
@@ -234,7 +236,7 @@ void C_sort_grouped_by_skill() {
             new_developers.push_back(skill_devs[k][best[i]]);
         }
     }
-    swap(developers, new_developers);
+    swap(developers_var, new_developers);
 }
 
 // 同じ連結成分内を蛇行して敷き詰める
@@ -268,13 +270,13 @@ void initialize_by_conn() {
     for (int i = 0; i < num_developer; i++) {
         if (i < valid_developer_pos.size()) {
             auto [a, b] = valid_developer_pos[i];
-            ans_pos[a][b] = developers[i].id;
+            ans_pos[a][b] = developers_var[i].id;
         }
     }
     for (int i = 0; i < num_manager; i++) {
         if (i < valid_manager_pos.size()) {
             auto [a, b] = valid_manager_pos[i];
-            ans_pos[a][b] = managers[i].id + num_developer;
+            ans_pos[a][b] = managers_var[i].id + num_developer;
         }
     }
 }
@@ -393,8 +395,13 @@ int calc_score(vector<vector<int>>& pos) {
     return score;
 }
 
-void hill_climb(int times = 10000000) {
-    REP(t, times) {
+void hill_climb(int seconds = 60) {
+    auto start = chrono::steady_clock::now();
+    while (1) {
+        auto now = chrono::steady_clock::now();
+        if (chrono::duration_cast<chrono::milliseconds>(now - start).count() > seconds * 1000) {
+            break;
+        }
         // developer
         pair<int, int> p1 = dev_places[rnd() % dev_places.size()];
         pair<int, int> p2 = dev_places[rnd() % dev_places.size()];
@@ -502,6 +509,8 @@ void read_input() {
         managers[i].company = company_map[companies[i + n]];
     }
     init_conn();
+    developers_var = developers;
+    managers_var = managers;
 }
 
 const char* input_files[] = {"test/a_solar.txt",     "test/b_dream.txt",  "test/c_soup.txt",
