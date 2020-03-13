@@ -479,7 +479,7 @@ void swap_two(int i1, int j1, int i2, int j2) {
     }
 }
 
-void hill_climb(int seconds = 60 * 2) {
+void hill_climb(int seconds = 60) {
     auto start = chrono::steady_clock::now();
     while (1) {
         auto now = chrono::steady_clock::now();
@@ -497,6 +497,48 @@ void hill_climb(int seconds = 60 * 2) {
             pair<int, int> p1 = man_places[rnd() % man_places.size()];
             pair<int, int> p2 = man_places[rnd() % man_places.size()];
             swap_two(p1.first, p1.second, p2.first, p2.second);
+        }
+    }
+}
+
+void hill_climb_conn() {
+    vector<vector<int>> conn_dev(num_conn), conn_man(num_conn);
+    for (int i = 0; i < H; i++) {
+        for (int j = 0; j < W; j++) {
+            if (0 <= ans_pos[i][j]) {
+                if (ans_pos[i][j] < num_developer) {
+                    conn_dev[conn[i][j]].push_back(ans_pos[i][j]);
+                } else {
+                    conn_man[conn[i][j]].push_back(ans_pos[i][j] - num_developer);
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < num_conn; i++) {
+        // developer
+        {
+            if (conn_dev[i].size() <= 1) continue;
+            for (int j = 0; j < 100; j++) {
+                pair<int, int> p1 = dev_places[conn_dev[i][rnd() % conn_dev[i].size()]];
+                pair<int, int> p2 = dev_places[conn_dev[i][rnd() % conn_dev[i].size()]];
+                if (p1 != p2) {
+                    swap_two(p1.first, p1.second, p2.first, p2.second);
+                    break;
+                }
+            }
+        }
+        // manager
+        {
+            if (conn_man[i].size() <= 1) continue;
+            for (int j = 0; j < 100; j++) {
+                pair<int, int> p1 = dev_places[conn_man[i][rnd() % conn_man[i].size()]];
+                pair<int, int> p2 = dev_places[conn_man[i][rnd() % conn_man[i].size()]];
+                if (p1 != p2) {
+                    swap_two(p1.first, p1.second, p2.first, p2.second);
+                    break;
+                }
+            }
         }
     }
 }
@@ -593,10 +635,13 @@ const char* input_files[] = {"test/a_solar.txt",     "test/b_dream.txt",  "test/
                              "test/d_maelstrom.txt", "test/e_igloos.txt", "test/f_glitch.txt"};
 
 const char* output_files[] = {"sol/a.sol", "sol/b.sol", "sol/c.sol", "sol/d.sol", "sol/e.sol", "sol/f.sol"};
+const char* error_output_files[] = {"debug/a.debug", "debug/b.debug", "debug/c.debug",
+                                    "debug/d.debug", "debug/e.debug", "debug/f.debug"};
 
 void redirect_io(int k) {
     assert(freopen(input_files[k], "r", stdin));
     assert(freopen(output_files[k], "w", stdout));
+    assert(freopen(output_files[k], "w", stderr));
 }
 
 int main() {
@@ -612,6 +657,11 @@ int main() {
     initialize_by_conn();
     best_score = calc_score(ans_pos);
     cerr << "initial score: " << best_score << endl;
-    hill_climb();
+    int minutes[] = {30, 20, 10};
+    for (int i = 0; i < 3; i++) {
+        hill_climb(60 * minutes[i]);
+        hill_climb_conn();
+    }
+
     print_solution();
 }
