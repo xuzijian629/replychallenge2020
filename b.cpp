@@ -502,17 +502,12 @@ void hill_climb(int seconds = 60) {
 }
 
 void hill_climb_conn(int seconds = 60) {
-    vector<vector<int>> conn_dev(num_conn), conn_man(num_conn);
-    for (int i = 0; i < H; i++) {
-        for (int j = 0; j < W; j++) {
-            if (0 <= ans_pos[i][j]) {
-                if (ans_pos[i][j] < num_developer) {
-                    conn_dev[conn[i][j]].push_back(ans_pos[i][j]);
-                } else {
-                    conn_man[conn[i][j]].push_back(ans_pos[i][j] - num_developer);
-                }
-            }
-        }
+    vector<vector<pair<int, int>>> conn_dev_places(num_conn), conn_man_places(num_conn);
+    for (auto& p : dev_places) {
+        conn_dev_places[conn[p.first][p.second]].push_back(p);
+    }
+    for (auto& p : man_places) {
+        conn_man_places[conn[p.first][p.second]].push_back(p);
     }
     auto start = chrono::steady_clock::now();
     while (1) {
@@ -523,10 +518,10 @@ void hill_climb_conn(int seconds = 60) {
         for (int i = 0; i < num_conn; i++) {
             // developer
             {
-                if (conn_dev[i].size() <= 1) continue;
+                if (conn_dev_places[i].size() <= 1) continue;
                 for (int j = 0; j < 100; j++) {
-                    pair<int, int> p1 = dev_places[conn_dev[i][rnd() % conn_dev[i].size()]];
-                    pair<int, int> p2 = dev_places[conn_dev[i][rnd() % conn_dev[i].size()]];
+                    pair<int, int> p1 = conn_dev_places[i][rnd() % conn_dev_places[i].size()];
+                    pair<int, int> p2 = conn_dev_places[i][rnd() % conn_dev_places[i].size()];
                     if (p1 != p2) {
                         swap_two(p1.first, p1.second, p2.first, p2.second);
                         break;
@@ -535,10 +530,10 @@ void hill_climb_conn(int seconds = 60) {
             }
             // manager
             {
-                if (conn_man[i].size() <= 1) continue;
+                if (conn_man_places[i].size() <= 1) continue;
                 for (int j = 0; j < 100; j++) {
-                    pair<int, int> p1 = dev_places[conn_man[i][rnd() % conn_man[i].size()]];
-                    pair<int, int> p2 = dev_places[conn_man[i][rnd() % conn_man[i].size()]];
+                    pair<int, int> p1 = conn_man_places[i][rnd() % conn_man_places[i].size()];
+                    pair<int, int> p2 = conn_man_places[i][rnd() % conn_man_places[i].size()];
                     if (p1 != p2) {
                         swap_two(p1.first, p1.second, p2.first, p2.second);
                         break;
