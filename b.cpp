@@ -15,7 +15,7 @@ const vector<pair<int, int>> DIRECTIONS = {
 };
 mt19937 rnd(chrono::steady_clock::now().time_since_epoch().count());
 
-constexpr int MAX_SKILL_COUNT = 189;
+constexpr int MAX_SKILL_COUNT = 400;
 
 struct Developer {
     int id;
@@ -501,7 +501,7 @@ void hill_climb(int seconds = 60) {
     }
 }
 
-void hill_climb_conn() {
+void hill_climb_conn(int seconds = 60) {
     vector<vector<int>> conn_dev(num_conn), conn_man(num_conn);
     for (int i = 0; i < H; i++) {
         for (int j = 0; j < W; j++) {
@@ -514,29 +514,35 @@ void hill_climb_conn() {
             }
         }
     }
-
-    for (int i = 0; i < num_conn; i++) {
-        // developer
-        {
-            if (conn_dev[i].size() <= 1) continue;
-            for (int j = 0; j < 100; j++) {
-                pair<int, int> p1 = dev_places[conn_dev[i][rnd() % conn_dev[i].size()]];
-                pair<int, int> p2 = dev_places[conn_dev[i][rnd() % conn_dev[i].size()]];
-                if (p1 != p2) {
-                    swap_two(p1.first, p1.second, p2.first, p2.second);
-                    break;
+    auto start = chrono::steady_clock::now();
+    while (1) {
+        auto now = chrono::steady_clock::now();
+        if (chrono::duration_cast<chrono::milliseconds>(now - start).count() > seconds * 1000) {
+            break;
+        }
+        for (int i = 0; i < num_conn; i++) {
+            // developer
+            {
+                if (conn_dev[i].size() <= 1) continue;
+                for (int j = 0; j < 100; j++) {
+                    pair<int, int> p1 = dev_places[conn_dev[i][rnd() % conn_dev[i].size()]];
+                    pair<int, int> p2 = dev_places[conn_dev[i][rnd() % conn_dev[i].size()]];
+                    if (p1 != p2) {
+                        swap_two(p1.first, p1.second, p2.first, p2.second);
+                        break;
+                    }
                 }
             }
-        }
-        // manager
-        {
-            if (conn_man[i].size() <= 1) continue;
-            for (int j = 0; j < 100; j++) {
-                pair<int, int> p1 = dev_places[conn_man[i][rnd() % conn_man[i].size()]];
-                pair<int, int> p2 = dev_places[conn_man[i][rnd() % conn_man[i].size()]];
-                if (p1 != p2) {
-                    swap_two(p1.first, p1.second, p2.first, p2.second);
-                    break;
+            // manager
+            {
+                if (conn_man[i].size() <= 1) continue;
+                for (int j = 0; j < 100; j++) {
+                    pair<int, int> p1 = dev_places[conn_man[i][rnd() % conn_man[i].size()]];
+                    pair<int, int> p2 = dev_places[conn_man[i][rnd() % conn_man[i].size()]];
+                    if (p1 != p2) {
+                        swap_two(p1.first, p1.second, p2.first, p2.second);
+                        break;
+                    }
                 }
             }
         }
@@ -641,7 +647,7 @@ const char* error_output_files[] = {"debug/a.debug", "debug/b.debug", "debug/c.d
 void redirect_io(int k) {
     assert(freopen(input_files[k], "r", stdin));
     assert(freopen(output_files[k], "w", stdout));
-    assert(freopen(output_files[k], "w", stderr));
+    assert(freopen(error_output_files[k], "w", stderr));
 }
 
 int main() {
@@ -660,7 +666,7 @@ int main() {
     int minutes[] = {30, 20, 10};
     for (int i = 0; i < 3; i++) {
         hill_climb(60 * minutes[i]);
-        hill_climb_conn();
+        hill_climb_conn(60 * 10);
     }
 
     print_solution();
